@@ -156,8 +156,6 @@ int32_t Gui::itemCountItoa(char_t* buf, int32_t n) {
 		return 1;
 	}
 }
-#include <network/RakNetInstance.hpp>
-#include <network/packet/MovePlayerPacket.hpp>
 void Gui::addMessage(const std::string& a2, const std::string& a3, int32_t a4) {
 	GuiMessage* v7; // r0
 	char* v8;		// r0
@@ -165,17 +163,6 @@ void Gui::addMessage(const std::string& a2, const std::string& a3, int32_t a4) {
 	if(this->minecraftInst->font) {
 		GuiMessage v13(a2, a3, a4);
 		this->chatMessages.emplace(this->chatMessages.begin(), v13);
-		if(v13.field_8 == ".nan") {
-			MovePlayerPacket* mp = new MovePlayerPacket();
-			mp->eid = this->minecraftInst->player->entityId;
-			mp->x = this->minecraftInst->player->posX;
-			mp->y = this->minecraftInst->player->posY;
-			mp->z = this->minecraftInst->player->posZ;
-			mp->pitch = mp->yaw = mp->bodyYaw = 0;
-			mp->bodyYaw = 0.0f / 0.0f;
-			this->minecraftInst->rakNetInstance->send(mp);
-			//this->minecraftInst->player->teleportTo(0.0f / 0.0f, 127, 0.0f / 0.0f);
-		}
 
 		if(!this->minecraftInst->isOnlineClient() && v13.field_8[0] == '/') {
 			//TODO - proper command handling
