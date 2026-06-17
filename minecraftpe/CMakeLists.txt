@@ -78,6 +78,8 @@ elseif(MCPE_IOS)
 		oaes_lib RakNetStatic jsoncpp_lib utf8proc
 		ZLIB::ZLIB
 		objc
+		c++
+		c++abi
 		# NOTE: the public iOS SDK does not ship libcurl. The desktop network
 		# layer (CurlRestRequestJob) still needs an iOS strategy (system
 		# libcurl, NSURLSession bridge, or a stub). See AGENTS.md milestone 4.
