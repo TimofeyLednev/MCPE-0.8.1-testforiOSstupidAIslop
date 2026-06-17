@@ -4,3 +4,7 @@ minecraftpe/impl/pcm_data.c
 build/
 CMakeLists.txt.user
 assets/*
+
+# iOS build outputs
+platforms/ios/minecraftpe08decomp
+platforms/ios/build/

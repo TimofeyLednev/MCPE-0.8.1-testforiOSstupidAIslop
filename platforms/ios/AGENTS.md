@@ -32,24 +32,24 @@ NBCraft-style Linux cross-compile path for an iOS build of MCPE 0.8.1.
   excluded on iOS (no libcurl in the public SDK); `CreateJob` returns the
   stubbed job like Android. Re-implementing networking is a TODO.
 
-## Known TODO (the actual app shell)
-The Objective-C++ shell files do NOT exist yet. They must be created here and
-must match THIS decomp's API (NOT NBCraft's), specifically:
-- `main.m` — `UIApplicationMain` entry.
-- App delegate + view controller (`UIViewController`) driving a CADisplayLink
-  loop that calls `Minecraft::update()`.
-- `EAGLView` (CAEAGLLayer + GLES1 framebuffer) for the GL surface.
-- `AppPlatform_iOS : AppPlatform` implementing the pure-virtuals from
-  `headers/AppPlatform.hpp` (note: `getImagePath`, `loadPNG`, `readAssetFile`,
-  `getLoginInformation`, screen size, touchscreen) and feeding
-  `Mouse`/`Multitouch`/`Keyboard`.
-- A keyboard input view for chat/sign text.
-- `Info.plist` (build-ipa.sh currently writes a minimal one inline) and an
-  asset-copy step for `assets/`.
+## App shell — DONE (it links + produces an ipa)
+The Objective-C++ shell now exists in this directory and matches THIS decomp's
+API:
+- `main.mm` — `UIApplicationMain` entry, app delegate, `UIViewController` with a
+  `CADisplayLink` loop calling `NinecraftApp::update()`, touch fed to
+  `Multitouch`/`Mouse`, soft-keyboard text view fed to `Keyboard`.
+- `EAGLView.{h,mm}` — `CAEAGLLayer` + GLES1 framebuffer (color + depth).
+- `AppPlatform_iOS.{hpp,mm}` — implements the `AppPlatform` pure-virtuals
+  (`getImagePath`, `loadPNG`, `readAssetFile` bundle-relative; screen size;
+  `supportsTouchscreen`; `getLoginInformation`; `showKeyboard`/`hideKeyboard`).
+- `tools/gen_silent_pcm.py` writes a silent `pcm_data.c` so it links without the
+  original APK sounds.
 
-Until those exist, the iOS link step will fail at the entry point / platform
-symbols — that is expected for this milestone (scaffolding + guards only).
+Build extras that were required (see CLAUDE.md): host `libc++-dev` headers,
+`#include_next <_types.h>` on Apple, `-DSTBI_NO_THREAD_LOCALS`, and the OpenAL
+typedef fix in `SoundSystemAL.hpp`.
 
 ## Deployment target
-Default `NBC_TARGETS=armv7-apple-ios6.0`. Lower to ios5.0 (and later test
-ios4.3 / arm64) only after the shell links and runs.
+Default `NBC_TARGETS=armv7-apple-ios6.0`. arm64 floor is iOS 7.0
+(`arm64-apple-ios7.0`). Lower to ios5.0 (and later test ios4.3) only after
+on-device testing with real assets.

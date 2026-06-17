@@ -5,41 +5,54 @@ Read `AGENTS.md` first, then `platforms/ios/AGENTS.md`.
 This fork is being prepared for an iOS port. Keep the existing desktop build
 intact, and make iOS work as a separate path rather than a destructive rewrite.
 
-Current focus:
-- NBCraft-style cross compilation from Linux
-- iOS 8.0 SDK baseline, **forced `libc++`** (the SDK's libstdc++ is too old for C++11)
-- armv7 first (iOS 6.0 floor), arm64 later
-- explicit Apple/iOS platform guards in the codebase
+## iOS port status — IT LINKS AND PRODUCES AN IPA ✅
 
-## iOS port progress log (newest first)
+The iOS cross-compile (from Linux) now compiles **all** of the game code with
+`-stdlib=libc++`, links a signed `armv7` Mach-O, and packs an `.ipa`.
 
-### Step 1 — force libc++ (DONE)
-- `platforms/ios/ios-cc` and `ios-c++` now always pass `-stdlib=libc++`
-  regardless of target. The iOS 8.0 SDK ships libc++ + its C++11 headers; its
-  bundled libstdc++ is ancient and breaks the C++11 decomp core. This is the
-  deliberate override the user asked for.
+Milestones done:
+1. ✅ NBCraft-style cross toolchain (iOS 8.0 SDK + cctools-port `ld64`/`lipo`/
+   `strip` + `ldid`) builds from Linux via `platforms/ios/build.sh`.
+2. ✅ Forced `libc++` in `ios-cc` / `ios-c++` wrappers (was libstdc++).
+3. ✅ Mechanical platform guards (GLES/OpenAL/EGL/SDL/curl) compile clean.
+4. ✅ Objective-C++ UIKit app shell written in `platforms/ios/`:
+   - `main.mm` — `UIApplicationMain` entry, app delegate, view controller with
+     a `CADisplayLink` loop calling `NinecraftApp::update()`, touch input fed to
+     `Multitouch`/`Mouse`, soft-keyboard text view fed to `Keyboard`.
+   - `EAGLView.{h,mm}` — `CAEAGLLayer` + GLES1 framebuffer.
+   - `AppPlatform_iOS.{hpp,mm}` — implements the `AppPlatform` pure-virtuals
+     (asset/image paths bundle-relative, screen metrics, touchscreen, login,
+     keyboard).
+5. ✅ Silent PCM stub generator (`tools/gen_silent_pcm.py`) so it links without
+   the original APK sounds.
 
-### Step 2 — Objective-C++ UIKit app shell (IN PROGRESS)
-Goal: create the files listed in `platforms/ios/AGENTS.md` "Known TODO" so the
-link step has an entry point + a concrete `AppPlatform` subclass.
-Files being added under `platforms/ios/`:
-- `main.m` — `UIApplicationMain` entry.
-- `MCPEAppDelegate.{h,mm}` — app delegate, sets up window + view controller.
-- `MCPEViewController.{h,mm}` — CADisplayLink loop -> `NinecraftApp::update()`.
-- `EAGLView.{h,mm}` — CAEAGLLayer + GLES1 framebuffer surface.
-- `AppPlatform_iOS.{hpp,mm}` — concrete `AppPlatform` implementing the
-  pure-virtuals this decomp needs.
+## Important build gotchas (already solved — don't regress)
+- **libc++ headers**: the iOS 8.0 SDK ships `libc++.dylib` but NOT the libc++
+  headers (`c++/v1`). We use the host's `libc++-dev` headers (apt) which clang
+  picks up automatically. So the host needs `libc++-dev libc++abi-dev`.
+- **`_types.h` clash**: the core ships `minecraftpe/headers/_types.h`, which is
+  on the `-Iheaders` path and shadows the iOS SDK's internal `<_types.h>`. The
+  SDK's `_wctype.h`/`_wchar.h` `#include <_types.h>` and need the Darwin
+  typedefs. Fixed with an `#ifdef __APPLE__ #include_next <_types.h>` at the top
+  of the project `_types.h`.
+- **stb thread_local**: `thread_local` is unsupported on armv7/iOS6 with this
+  toolchain. Fixed by defining `STBI_NO_THREAD_LOCALS` for the iOS build.
+- **OpenAL typedefs**: on Apple `ALCdevice`/`ALCcontext` are typedefs of
+  `*_struct`, which clashed with `struct ALCdevice*` forward decls in
+  `SoundSystemAL.hpp`. Fixed by including `<OpenAL/alc.h>` and using the
+  typedef names on Apple.
 
-The shell must match THIS decomp's API (not NBCraft's). API is discovered by
-reading `minecraftpe/headers/AppPlatform.hpp`, `App.hpp`, `NinecraftApp.hpp`,
-`_pengine.hpp`, input headers, etc.
+## Sounds
+The real sounds come from an original 0.8.1 `libminecraftpe.so`
+(`tools/get_sound_data.py`). Without it, `tools/gen_silent_pcm.py` writes a
+silent `minecraftpe/impl/pcm_data.c` so the binary links (no audio).
 
-## Build (Linux cross-compile) — see README at repo root for the full copy
-```
-git clone --recursive <repo>
-python tools/get_sound_data.py <path/to/libminecraftpe.so>   # -> pcm_data.c
-mv pcm_data.c minecraftpe/impl/
-cd platforms/ios && ./build.sh
-```
-`build.sh` downloads the iOS 8.0 SDK, builds cctools-port ld64 + ldid, then
-runs cmake per target in `NBC_TARGETS` (default `armv7-apple-ios6.0`).
+## Deployment target
+Default `NBC_TARGETS=armv7-apple-ios6.0`. arm64 floor for this SDK is iOS 7.0
+(`arm64-apple-ios7.0`). Lowering further (ios5.0 / 4.3) is still TODO and needs
+C++11 usage review.
+
+## Still TODO (runtime, not build)
+- Real assets (`assets/` from the APK) for the app to actually run.
+- Native networking backend (curl is excluded; realms/multiplayer over HTTP).
+- Lower deployment target; arm64 slice; test on device.
