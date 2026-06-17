@@ -1,5 +1,5 @@
 #pragma once
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(MCPE_IOS)
 #include <network/mco/RestRequestJob.hpp>
 #include <android/AppPlatform_android.hpp>
 #include <mutex>

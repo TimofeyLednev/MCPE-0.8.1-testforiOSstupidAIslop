@@ -1,4 +1,4 @@
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(MCPE_IOS)
 #include <network/mco/CurlRestRequestJob.hpp>
 #include <curl/curl.h>
 #include <network/RestService.hpp>

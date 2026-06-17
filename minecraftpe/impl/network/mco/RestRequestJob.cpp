@@ -3,11 +3,13 @@
 #include <network/mco/RestCallTagData.hpp>
 #include <time.h>
 #include <util/Util.hpp>
+#if !defined(ANDROID) && !defined(MCPE_IOS)
 #include <network/mco/CurlRestRequestJob.hpp>
+#endif
 
 std::shared_ptr<RestRequestJob> RestRequestJob::CreateJob(RestRequestType a2, std::shared_ptr<RestService> a3, Minecraft* a4) {
-#ifdef ANDROID
-	DEBUGMSG("RestRequestJob::CreateJob(android not implemented\n");
+#if defined(ANDROID) || defined(MCPE_IOS)
+	DEBUGMSG("RestRequestJob::CreateJob(not implemented for this platform)\n");
 	return std::shared_ptr<RestRequestJob>();
 #else
 	std::shared_ptr<RestRequestJob> ret(new CurlRestRequestJob());

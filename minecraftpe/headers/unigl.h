@@ -2,9 +2,14 @@
 #define UNIGL_H
 
 #ifdef USEGLES
+#ifdef __APPLE__
+#include <OpenGLES/ES1/gl.h>
+#include <OpenGLES/ES1/glext.h>
+#else
 #include <GLES/gl.h>
 #include <GLES/egl.h>
 #include <GLES/glext.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,6 +1,9 @@
 #pragma once
 #include <_types.h>
-#ifndef ANDROID
+#ifdef MCPE_IOS
+// iOS provides its own UIKit entry point and platform object in
+// platforms/ios; nothing desktop/SDL-specific is pulled in here.
+#elif !defined(ANDROID)
 #include <AppPlatform_sdl.hpp>
 
 extern AppPlatform_sdl appPlatform;

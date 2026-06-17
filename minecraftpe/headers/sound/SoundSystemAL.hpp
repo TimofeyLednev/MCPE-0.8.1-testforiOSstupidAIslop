@@ -1,5 +1,5 @@
 #pragma once
-#if defined(__linux__) and not defined(ANDROID)
+#if (defined(__linux__) || defined(__APPLE__)) && !defined(ANDROID)
 #include <_types.h>
 #include <sound/SoundSystem.hpp>
 
