@@ -7,8 +7,11 @@ bin="${1:-build/minecraftpe08decomp}"
 execname='minecraftpe08decomp'
 
 platformdir='platforms/ios'
+resdir="$platformdir/resources"
 builddir="$platformdir/build"
-assetdir="${ASSET_DIR:-assets}"
+# Game assets: default to platforms/ios/resources/assets (unpack the APK's
+# assets/ there), override with ASSET_DIR=/path/to/assets.
+assetdir="${ASSET_DIR:-$resdir/assets}"
 ipadir="$builddir/ipa"
 apppath="$ipadir/Payload/$execname.app"
 
@@ -30,7 +33,12 @@ rm -rf "$ipadir"
 mkdir -p "$apppath"
 cp "$bin" "$apppath/$execname"
 
-cat > "$apppath/Info.plist" <<'EOF'
+# Info.plist: prefer the editable one in resources/, fall back to a minimal
+# inline default so the build still works on a bare checkout.
+if [ -f "$resdir/Info.plist" ]; then
+    cp "$resdir/Info.plist" "$apppath/Info.plist"
+else
+    cat > "$apppath/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -52,8 +60,27 @@ cat > "$apppath/Info.plist" <<'EOF'
 </dict>
 </plist>
 EOF
+fi
 
-cp -a "$assetdir" "$apppath" || true
+# Launch images + icons live at the .app root (legacy naming).
+if [ -d "$resdir" ]; then
+    for f in "$resdir"/Default*.png "$resdir"/Icon*.png; do
+        [ -f "$f" ] && cp "$f" "$apppath/"
+    done
+fi
+
+# Game assets -> <app>/assets (AppPlatform_iOS resolves bundle + "assets/...").
+if [ -d "$assetdir" ]; then
+    rm -rf "$apppath/assets"
+    cp -a "$assetdir" "$apppath/assets"
+    if [ -z "$(ls -A "$assetdir" 2>/dev/null | grep -v '^\.gitkeep$')" ]; then
+        printf 'WARNING: %s is empty. Unpack a real MCPE 0.8.1 APK assets/ there;\n' "$assetdir"
+        printf '         the app will launch but cannot load textures/UI.\n'
+    fi
+else
+    printf 'WARNING: no asset dir at %s (set ASSET_DIR). App will lack assets.\n' "$assetdir"
+fi
+
 cd "$ipadir"
 rm -f "../$ipaname"
 zip -r "../$ipaname" Payload >/dev/null

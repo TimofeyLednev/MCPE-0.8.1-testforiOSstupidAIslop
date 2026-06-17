@@ -8,3 +8,7 @@ assets/*
 # iOS build outputs
 platforms/ios/minecraftpe08decomp
 platforms/ios/build/
+
+# Bundled game assets (unpack from APK locally; do not commit copyrighted data)
+platforms/ios/resources/assets/*
+!platforms/ios/resources/assets/.gitkeep

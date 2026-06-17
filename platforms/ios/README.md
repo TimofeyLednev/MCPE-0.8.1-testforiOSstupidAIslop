@@ -10,8 +10,9 @@ must add `assets/` for the app to actually run — see below.)
 
 - `build.sh` — downloads the iOS 8.0 SDK, builds the cross toolchain (ld64, lipo, strip, ldid), then runs the cmake build per target, lipos the slices together, strips, signs with `ldid`, and packs an `.ipa`.
 - `ios-cc` / `ios-c++` — compiler wrappers. They require `NBC_TARGET` (e.g. `armv7-apple-ios6.0`) and inject `-isysroot`, `-target`, `-stdlib=libc++`, `-fuse-ld=ld64`.
-- `build-ipa.sh` — packages the signed binary + `assets` into `Payload/<app>.app` and zips an `.ipa`.
+- `build-ipa.sh` — packages the signed binary + everything in `resources/` (Info.plist, launch images, icons, `assets/`) into `Payload/<app>.app` and zips an `.ipa`.
 - `mcpe.entitlements` — minimal `get-task-allow` entitlements for sideloading.
+- `resources/` — everything bundled into the `.app`: `Info.plist`, launch images (incl. `Default-568h@2x.png` for iPhone 5), icons, and `assets/` (unpack the game's resources here). See `resources/README.md`.
 - `main.mm`, `EAGLView.{h,mm}`, `AppPlatform_iOS.{hpp,mm}` — the UIKit / GLES1
   Objective-C++ app shell (entry point, GL surface, platform layer, input).
 
@@ -86,10 +87,13 @@ Skip the `.ipa` step with `NBC_NO_IPA=1`. Debug build with `DEBUG=1`.
 
 ### 5. Assets (needed to actually run on device)
 
-`build-ipa.sh` copies a top-level `assets/` directory into the `.app`. Extract
-`assets/` from a real MCPE 0.8.1 APK into the repo root before building the ipa,
-or set `ASSET_DIR=/path/to/assets`. Without assets the app launches but cannot
-load textures/UI.
+`build-ipa.sh` bundles everything in `platforms/ios/resources/` into the `.app`.
+Unpack a real MCPE 0.8.1 APK's `assets/` tree into
+`platforms/ios/resources/assets/` before building. At runtime `AppPlatform_iOS`
+resolves files against `<bundle>/assets/...`, so the layout must match the APK.
+Override the source with `ASSET_DIR=/path/to/assets`. Without assets the app
+launches but cannot load textures/UI. See `resources/README.md` for the
+expected layout, launch-image sizes, and icon sizes.
 
 ## Targets / deployment floor
 
