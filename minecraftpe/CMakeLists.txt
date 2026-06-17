@@ -37,7 +37,7 @@ if(ANDROID)
 	add_compile_options(-DEVILOREOBROKEPTHREADS)
 elseif(MCPE_IOS)
 	# iOS renders with OpenGL ES 1.x (same as the original game / android path).
-	add_compile_options(-DUSEGLES -DIMTOOLAZYTOFIX16ERRS -DMCPE_IOS)
+	add_compile_options(-DUSEGLES -DIMTOOLAZYTOFIX16ERRS -DMCPE_IOS -DSTBI_NO_THREAD_LOCALS)
 else()
 	add_compile_options(-DIMTOOLAZYTOFIX16ERRS -DPCTWEAKS)
 endif()

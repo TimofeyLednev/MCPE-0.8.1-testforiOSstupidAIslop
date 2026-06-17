@@ -1,4 +1,12 @@
 #pragma once
+#ifdef __APPLE__
+// The iOS SDK has its own internal <_types.h> that defines Darwin typedefs
+// (__darwin_wctype_t, __DARWIN_WEOF, etc). Because the core ships its own
+// headers/ on the include path, an SDK `#include <_types.h>` resolves to THIS
+// file instead, hiding those typedefs and breaking libc++ <string>/<wchar.h>.
+// Pull the real SDK header in first so both definitions coexist.
+#include_next <_types.h>
+#endif
 #define UNK
 #include <stdint.h>
 typedef char char_t;
