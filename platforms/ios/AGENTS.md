@@ -49,6 +49,27 @@ Build extras that were required (see CLAUDE.md): host `libc++-dev` headers,
 `#include_next <_types.h>` on Apple, `-DSTBI_NO_THREAD_LOCALS`, and the OpenAL
 typedef fix in `SoundSystemAL.hpp`.
 
+## libc++ iostream link wall (SOLVED — don't regress)
+Symptom: at 100% (linking) the build dies with `Undefined symbols for
+architecture armv7` for `vtable for std::__1::basic_stringstream`, `VTT for
+...`, `vtable for basic_stringbuf`, `basic_ostringstream`, and
+`basic_stringbuf::str() const` — referenced from `Options.cpp`, `I18n.cpp`,
+`ExternalServerFile.cpp`, `libjsoncpp.a(json_writer.cpp.o)`, etc.
+
+Cause: the host libc++ headers (libc++-18) are a *non-vendor* build, so they
+define `_LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS`. That makes `<sstream>`
+emit `extern template` declarations for the string-stream classes — i.e. it
+expects their vtables / `str()` to come from the shared `libc++.dylib`. The iOS
+8.0 SDK's `libc++.dylib` (2014) never exported those symbols, so the link fails.
+
+Fix: `platforms/ios/libcxx/__config_site` is force-included ahead of the host
+one (via `-I "$scriptroot/libcxx"` in `ios-cc`/`ios-c++`). It `#include_next`s
+the real config and then `#undef`s `_LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS`,
+pushing `<__availability>` into the `__APPLE__` branch. There the extra iostream
+instantiations are disabled for iOS < 15.0, so the stream vtables are emitted
+locally (weak) in our objects and the link succeeds. Don't remove the
+`-I .../libcxx` flag or that shim.
+
 ## Deployment target
 Default `NBC_TARGETS=armv7-apple-ios6.0`. arm64 floor is iOS 7.0
 (`arm64-apple-ios7.0`). Lower to ios5.0 (and later test ios4.3) only after

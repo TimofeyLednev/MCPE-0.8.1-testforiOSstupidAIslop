@@ -1,5 +1,7 @@
 #!/bin/sh
 
+scriptroot="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
 if [ -z "$NBC_TARGET" ]; then
     printf 'Do not run this script directly!\n'
     exit 1
@@ -19,6 +21,7 @@ stdlib=libc++
 exec "$cc" \
     -mlinker-version=762 \
     -stdlib="$stdlib" \
+    -I "$scriptroot/libcxx" \
     "$@" \
     -isysroot "$NBC_SDK" \
     -target "$NBC_TARGET" \

@@ -27,6 +27,19 @@ Milestones done:
    the original APK sounds.
 
 ## Important build gotchas (already solved — don't regress)
+- **libc++ iostream link wall**: the host libc++ headers (libc++-18) are a
+  *non-vendor* build, so they define
+  `_LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS`. That makes `<sstream>` emit
+  `extern template` decls for `basic_stringbuf`/`basic_stringstream`/
+  `basic_ostringstream`, expecting their vtables + `str()` from the shared
+  `libc++.dylib`. The iOS 8.0 SDK's 2014 `libc++.dylib` doesn't export them, so
+  the link dies at 100% with `Undefined symbols for architecture armv7`
+  (vtables / VTT / `basic_stringbuf::str()`). Fixed with
+  `platforms/ios/libcxx/__config_site` (force-included via `-I` in the wrappers)
+  which `#include_next`s the host config then `#undef`s that macro, sending
+  `<__availability>` into the `__APPLE__` branch where the instantiations are
+  disabled for iOS < 15.0 (vtables then emitted locally). Don't drop the
+  `-I .../libcxx` flag.
 - **libc++ headers**: the iOS 8.0 SDK ships `libc++.dylib` but NOT the libc++
   headers (`c++/v1`). We use the host's `libc++-dev` headers (apt) which clang
   picks up automatically. So the host needs `libc++-dev libc++abi-dev`.
