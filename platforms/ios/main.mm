@@ -31,10 +31,14 @@ static MCPEViewController* g_viewController = nil;
 	EAGLView* _glView;
 	CADisplayLink* _displayLink;
 	BOOL _hasInit;
+	BOOL _paused;
 	UITextField* _keyboardField;
+	UITouch* _mouseTouch;
 }
 - (void)showKeyboardWithText:(NSString*)text;
 - (void)hideKeyboard;
+- (void)pauseRendering;
+- (void)resumeRendering;
 @end
 
 @implementation MCPEViewController
@@ -76,6 +80,10 @@ static MCPEViewController* g_viewController = nil;
 }
 
 - (void)tick:(CADisplayLink*)link {
+	if (_paused) {
+		return;
+	}
+
 	[_glView setFramebuffer];
 
 	if (!_hasInit) {
@@ -94,24 +102,54 @@ static MCPEViewController* g_viewController = nil;
 	}
 }
 
+- (void)pauseRendering {
+	_paused = YES;
+	_mouseTouch = nil;
+	[_displayLink setPaused:YES];
+}
+
+- (void)resumeRendering {
+	[_glView makeCurrent];
+	[_glView destroyFramebuffer];
+	[_glView createFramebuffer];
+	[_displayLink setPaused:NO];
+	_paused = NO;
+}
+
 // --- touch -> Multitouch/Mouse --------------------------------------------
 - (void)feedTouches:(NSSet*)touches pressed:(BOOL)pressed moved:(BOOL)moved {
 	CGFloat scale = [self scale];
+	UITouch* primaryTouch = _mouseTouch;
+	if (!primaryTouch && [touches count] > 0) {
+		primaryTouch = [touches anyObject];
+		if (pressed && !moved) {
+			_mouseTouch = primaryTouch;
+		}
+	}
+
 	for (UITouch* t in touches) {
 		CGPoint p = [t locationInView:_glView];
 		int16_t x = (int16_t)(p.x * scale);
 		int16_t y = (int16_t)(p.y * scale);
-		// pointer id: stable-ish per touch object hash, clamped in feed().
 		int8_t pid = (int8_t)(((intptr_t)t >> 4) & 0x7);
 		if (moved) {
 			Multitouch::feed(0, 0, x, y, pid);
 		} else {
 			Multitouch::feed(1, pressed ? 1 : 0, x, y, pid);
 		}
-		// Drive the single-pointer Mouse too (menus use it like a cursor).
-		if (pid == 0) {
-			if (moved) Mouse::feed(0, 0, x, y);
-			else Mouse::feed(1, pressed ? 1 : 0, x, y);
+	}
+
+	if (primaryTouch && [touches containsObject:primaryTouch]) {
+		CGPoint p = [primaryTouch locationInView:_glView];
+		int16_t x = (int16_t)(p.x * scale);
+		int16_t y = (int16_t)(p.y * scale);
+		if (moved) {
+			Mouse::feed(0, 0, x, y);
+		} else {
+			Mouse::feed(1, pressed ? 1 : 0, x, y);
+			if (!pressed) {
+				_mouseTouch = nil;
+			}
 		}
 	}
 }
@@ -126,6 +164,9 @@ static MCPEViewController* g_viewController = nil;
 	[self feedTouches:touches pressed:NO moved:NO];
 }
 - (void)touchesCancelled:(NSSet*)touches withEvent:(UIEvent*)e {
+	if (_mouseTouch && [touches containsObject:_mouseTouch]) {
+		_mouseTouch = nil;
+	}
 	[self feedTouches:touches pressed:NO moved:NO];
 }
 
@@ -189,7 +230,28 @@ didFinishLaunchingWithOptions:(NSDictionary*)options {
 }
 
 - (void)applicationWillResignActive:(UIApplication*)application {
+	if (g_viewController) {
+		[g_viewController pauseRendering];
+	}
 	if (g_app) g_app->pauseGame(1);
+}
+
+- (void)applicationDidEnterBackground:(UIApplication*)application {
+	if (g_viewController) {
+		[g_viewController pauseRendering];
+	}
+}
+
+- (void)applicationDidBecomeActive:(UIApplication*)application {
+	if (g_viewController) {
+		[g_viewController resumeRendering];
+	}
+}
+
+- (void)applicationWillEnterForeground:(UIApplication*)application {
+	if (g_viewController) {
+		[g_viewController resumeRendering];
+	}
 }
 
 @end
