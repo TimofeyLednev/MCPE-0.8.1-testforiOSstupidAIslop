@@ -34,15 +34,40 @@ fi
 # ---- host tooling -----------------------------------------------------------
 if command -v nproc >/dev/null; then ncpus="$(nproc)"; else ncpus=2; fi
 
-ar="${AR:-llvm-ar}"
-ranlib="${RANLIB:-llvm-ranlib}"
+# ---- compiler selection -----------------------------------------------------
+# This decomp relies on undefined-behaviour that clang 14 tolerates but newer
+# clang (17/18+) miscompiles into a runtime trap (udf #0xfe -> 0xdefe) when you
+# go online. So PREFER clang-14 if it is installed. Override with CC/CXX env.
+#   Ubuntu/Debian:  sudo apt install clang-14 llvm-14-dev libc++-14-dev libc++abi-14-dev
+pick() { for c in "$@"; do command -v "$c" >/dev/null 2>&1 && { command -v "$c"; return 0; }; done; return 1; }
 
-for dep in "$ar" "$ranlib" clang clang++ cmake cmp wget tar; do
+clangbin="${CC:-$(pick clang-14 clang)}"
+clangxxbin="${CXX:-$(pick clang++-14 clang++)}"
+ar="${AR:-$(pick llvm-ar-14 llvm-ar)}"
+ranlib="${RANLIB:-$(pick llvm-ranlib-14 llvm-ranlib)}"
+
+if [ -z "$clangbin" ] || [ -z "$clangxxbin" ]; then
+    printf 'clang not found! Install clang-14 (recommended):\n'
+    printf '  sudo apt install -y clang-14 llvm-14-dev libc++-14-dev libc++abi-14-dev\n'
+    exit 1
+fi
+
+# Warn loudly if we ended up on a non-14 clang (works, but online may crash).
+clangver="$("$clangbin" -dumpversion 2>/dev/null | cut -d. -f1)"
+case "$clangver" in
+    14) printf 'Using clang %s (%s)\n' "$clangver" "$clangbin" ;;
+    *)  printf '\n*** WARNING: using clang %s (%s), NOT clang-14. ***\n' "$clangver" "$clangbin"
+        printf '*** Online/multiplayer may crash (0xdefe). Install clang-14:\n'
+        printf '***   sudo apt install -y clang-14 llvm-14-dev libc++-14-dev libc++abi-14-dev\n\n' ;;
+esac
+
+for dep in "$ar" "$ranlib" "$clangbin" "$clangxxbin" cmake cmp wget tar; do
     command -v "$dep" >/dev/null || { printf '%s not found!\n' "$dep"; exit 1; }
 done
 
 if [ -z "$LLVM_CONFIG" ]; then
-    if command -v llvm-config >/dev/null; then export LLVM_CONFIG=llvm-config
+    llvmcfg="$(pick llvm-config-14 llvm-config || true)"
+    if [ -n "$llvmcfg" ]; then export LLVM_CONFIG="$llvmcfg"
     else export LLVM_CONFIG=false; fi
 fi
 
@@ -54,8 +79,8 @@ mkdir -p toolchain/bin
 export PATH="$workdir/toolchain/bin:$PATH"
 
 ccache="$(command -v ccache || true)"
-printf '#!/bin/sh\nexec %s clang "$@"\n' "$ccache" > toolchain/bin/mcpe-clang
-printf '#!/bin/sh\nexec %s clang++ "$@"\n' "$ccache" > toolchain/bin/mcpe-clang++
+printf '#!/bin/sh\nexec %s %s "$@"\n' "$ccache" "$clangbin" > toolchain/bin/mcpe-clang
+printf '#!/bin/sh\nexec %s %s "$@"\n' "$ccache" "$clangxxbin" > toolchain/bin/mcpe-clang++
 chmod +x toolchain/bin/mcpe-clang toolchain/bin/mcpe-clang++
 
 if [ ! -x toolchain/bin/ld64.ld64 ] || [ ! -x toolchain/bin/lipo ] || [ ! -x toolchain/bin/cctools-strip ]; then

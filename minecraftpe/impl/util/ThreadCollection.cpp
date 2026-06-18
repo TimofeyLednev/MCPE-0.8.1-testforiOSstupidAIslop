@@ -22,30 +22,45 @@ ThreadCollection::ThreadCollection(uint32_t maxthreads) {
 	}
 }
 void ThreadCollection::enqueue(std::shared_ptr<Job> a2) {
-	Job* j = a2.get();
-	std::unique_lock<std::mutex> v11(this->mutex, std::defer_lock);
-	v11.lock();
-	this->field_C.emplace_back(a2);
-	v11.unlock();
+	{
+		std::lock_guard<std::mutex> lock(this->mutex);
+		this->field_C.emplace_back(a2);
+	}
 	this->field_64.notify_one();
 }
 void ThreadCollection::processUIThread() {
-	for(auto&& it = this->field_34.begin(); it != this->field_34.end();) {
-
-		if(it->get()->status == JS_FINISHED) {
-			it->get()->finish();
+	// Move the finished-jobs queue out under the lock, then run finish() callbacks
+	// outside the lock. finish() may touch UI/connector state, so we must not hold
+	// field_60 while calling it (and the previous version iterated/erased the deque
+	// with no locking at all, racing the worker threads that push into field_34).
+	std::deque<std::shared_ptr<Job>> done;
+	{
+		std::lock_guard<std::mutex> lock(this->field_60);
+		done.swap(this->field_34);
+	}
+	for(auto&& job : done) {
+		if(job.get() && job->status == JS_FINISHED) {
+			job->finish();
 		}
-		it = this->field_34.erase(it); //TODO check
 	}
 }
 ThreadCollection::~ThreadCollection() {
-	std::unique_lock<std::mutex>(this->mutex, std::defer_lock).lock();
-	std::unique_lock<std::mutex>(this->field_60, std::defer_lock).lock();
-	this->isStopped = 1;
+	{
+		// Real lock (the old code created unnamed temporary unique_locks that were
+		// destroyed immediately and therefore held nothing). Set the stop flag under
+		// the mutex so the predicate wait in the workers observes it, then wake all.
+		std::lock_guard<std::mutex> lock(this->mutex);
+		this->isStopped = 1;
+	}
 	this->field_64.notify_all();
 
 	for(auto&& t: this->threads) {
-		t.join();
+		if(t.joinable()) t.join();
 	}
 	this->threads.clear();
+
+	{
+		std::lock_guard<std::mutex> lock(this->field_60);
+		this->field_34.clear();
+	}
 }

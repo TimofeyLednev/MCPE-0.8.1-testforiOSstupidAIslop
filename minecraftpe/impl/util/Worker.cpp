@@ -6,33 +6,33 @@ Worker::Worker(ThreadCollection& a2) {
 	this->threadCollection = &a2;
 }
 void Worker::operator()(void) {
+	ThreadCollection* tc = this->threadCollection;
 
-	while(1) {
-		if(this->threadCollection->isStopped) {
-			break;
+	while(true) {
+		std::shared_ptr<Job> el;
+		{
+			// Single lock guarding both the stop flag and the queue. Using a predicate
+			// wait avoids the lost-wakeup / race that existed before (checking empty()
+			// and wait() without holding the mutex).
+			std::unique_lock<std::mutex> lock(tc->mutex);
+			tc->field_64.wait(lock, [tc]{ return tc->isStopped || !tc->field_C.empty(); });
+
+			if(tc->isStopped && tc->field_C.empty()) {
+				break;
+			}
+			if(tc->field_C.empty()) {
+				continue;
+			}
+			el = tc->field_C.front();
+			tc->field_C.pop_front();
 		}
 
-		if(!this->threadCollection->field_C.empty()) {
-			std::shared_ptr<Job> el;
-			{
-				std::unique_lock<std::mutex> v24(this->threadCollection->mutex, std::defer_lock);
-				v24.lock();
-				el = this->threadCollection->field_C.front();
-				this->threadCollection->field_C.pop_front(); //TODO check;
+		if(el.get()) {
+			el->run();
+			if(el->getStatus() == JS_FINISHED) {
+				std::unique_lock<std::mutex> done(tc->field_60);
+				tc->field_34.emplace_back(el);
 			}
-			if(el.get()) {
-				el->run();
-				if(el->getStatus() == JS_FINISHED) {
-					std::unique_lock<std::mutex> v24(this->threadCollection->field_60, std::defer_lock);
-					v24.lock();
-					this->threadCollection->field_34.emplace_back(std::shared_ptr<Job>(el));
-				}
-			}
-			continue;
 		}
-
-		std::unique_lock<std::mutex> mut(this->threadCollection->mutex, std::defer_lock);
-		mut.lock();
-		this->threadCollection->field_64.wait(mut);
 	}
 }
