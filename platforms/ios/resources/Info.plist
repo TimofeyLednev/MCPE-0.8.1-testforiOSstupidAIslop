@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>minecraftpe08decomp</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.mojang.minecraftpe</string>
+	<string>com.mojang.minecraftpe081</string>
 	<key>CFBundleName</key>
 	<string>Minecraft PE</string>
 	<key>CFBundleDisplayName</key>
