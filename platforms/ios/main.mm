@@ -233,7 +233,12 @@ didFinishLaunchingWithOptions:(NSDictionary*)options {
 	if (g_viewController) {
 		[g_viewController pauseRendering];
 	}
-	if (g_app) g_app->pauseGame(1);
+	if (g_app) {
+		g_app->pauseGame(1);
+		if (g_app->level) {
+			g_app->cancelLocateMultiplayer();
+		}
+	}
 }
 
 - (void)applicationDidEnterBackground:(UIApplication*)application {
