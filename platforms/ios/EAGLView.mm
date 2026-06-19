@@ -58,9 +58,17 @@
 
 	glGenRenderbuffersOES(1, &_depthRenderbuffer);
 	glBindRenderbufferOES(GL_RENDERBUFFER_OES, _depthRenderbuffer);
-	glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH_COMPONENT16_OES,
+	// Fancy Graphics renders entity/sky shadows with the stencil buffer
+	// (GL_STENCIL_TEST + glStencilFunc). The desktop SDL path requests
+	// SDL_GL_STENCIL_SIZE=8 and Android's EGL config asks for EGL_STENCIL_SIZE=8,
+	// so a packed 24/8 depth+stencil renderbuffer matches them here. Without a
+	// stencil buffer the stencil test passes everywhere and the shadow overlay
+	// quad floods the top half of the screen.
+	glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH24_STENCIL8_OES,
 	                         _backingWidth, _backingHeight);
 	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES,
+	                             GL_RENDERBUFFER_OES, _depthRenderbuffer);
+	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_STENCIL_ATTACHMENT_OES,
 	                             GL_RENDERBUFFER_OES, _depthRenderbuffer);
 
 	if (glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES) {
