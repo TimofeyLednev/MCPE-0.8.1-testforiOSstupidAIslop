@@ -1,6 +1,7 @@
 #ifdef MCPE_IOS
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <AVFoundation/AVFoundation.h>
 #include <sys/time.h>
 
 #include <_types.h>
@@ -14,6 +15,105 @@
 #include "EAGLView.h"
 #include "AppPlatform_iOS.hpp"
 
+static void MCPEConfigureAudioSession(void) {
+	Class sessionClass = NSClassFromString(@"AVAudioSession");
+	if (!sessionClass) {
+		return;
+	}
+
+	id session = [sessionClass sharedInstance];
+	if (!session) {
+		return;
+	}
+
+	if ([session respondsToSelector:@selector(setCategory:error:)]) {
+		NSError* error = nil;
+		[session setCategory:AVAudioSessionCategoryPlayback error:&error];
+		if (error) {
+			NSLog(@"[MCPE] audio session category setup failed: %@", error);
+		}
+	}
+
+	if ([session respondsToSelector:@selector(setActive:error:)]) {
+		NSError* error = nil;
+		[session setActive:YES error:&error];
+		if (error) {
+			NSLog(@"[MCPE] audio session activation failed: %@", error);
+		}
+	} else if ([session respondsToSelector:@selector(setActive:)]) {
+		[session setActive:YES];
+	}
+}
+
+@interface MCPEKeyboardResponder : UIView <UIKeyInput, UITextInputTraits> {
+	NSMutableString* _buffer;
+}
+- (void)setInitialText:(NSString*)text;
+@end
+
+@implementation MCPEKeyboardResponder
+
+- (id)initWithFrame:(CGRect)frame {
+	self = [super initWithFrame:frame];
+	if (self) {
+		_buffer = [[NSMutableString alloc] init];
+		self.backgroundColor = [UIColor clearColor];
+		self.opaque = NO;
+		self.alpha = 0.01f;
+		self.userInteractionEnabled = NO;
+	}
+	return self;
+}
+
+- (void)dealloc {
+	[_buffer release];
+	[super dealloc];
+}
+
+- (BOOL)canBecomeFirstResponder { return YES; }
+- (BOOL)hasText { return [_buffer length] > 0; }
+
+- (void)setInitialText:(NSString*)text {
+	[_buffer setString:text ? text : @""];
+}
+
+- (void)insertText:(NSString*)text {
+	if (!text || [text length] == 0) {
+		return;
+	}
+	if ([text isEqualToString:@"\n"]) {
+		Keyboard::feed(13, 1);
+		Keyboard::feed(13, 0);
+		return;
+	}
+	[_buffer appendString:text];
+	Keyboard::feedText(std::string([text UTF8String]), 0);
+}
+
+- (void)deleteBackward {
+	if ([_buffer length] > 0) {
+		[_buffer deleteCharactersInRange:NSMakeRange([_buffer length] - 1, 1)];
+	}
+	Keyboard::feed(8, 1);
+	Keyboard::feed(8, 0);
+}
+
+// UITextInputTraits. secureTextEntry disables the iOS 13+ continuous-path
+// (QuickPath / slide-to-type) overlay and the predictive bar. That overlay's
+// internal Auto Layout setup is what aborts on this off-screen responder, so
+// turning it off is the actual crash fix. All of these traits exist since
+// iOS 2-5, so the iOS 5.0 armv7 slice stays compatible.
+- (UITextAutocapitalizationType)autocapitalizationType { return UITextAutocapitalizationTypeNone; }
+- (UITextAutocorrectionType)autocorrectionType { return UITextAutocorrectionTypeNo; }
+- (UITextSpellCheckingType)spellCheckingType { return UITextSpellCheckingTypeNo; }
+- (UIKeyboardType)keyboardType { return UIKeyboardTypeDefault; }
+- (UIKeyboardAppearance)keyboardAppearance { return UIKeyboardAppearanceDefault; }
+- (UIReturnKeyType)returnKeyType { return UIReturnKeyDefault; }
+- (BOOL)enablesReturnKeyAutomatically { return NO; }
+- (BOOL)isSecureTextEntry { return YES; }
+
+@end
+
 // ---------------------------------------------------------------------------
 // Globals shared with AppPlatform_iOS.mm (keyboard bridge).
 // ---------------------------------------------------------------------------
@@ -25,14 +125,15 @@ static MCPEViewController* g_viewController = nil;
 
 // ===========================================================================
 // View controller: owns the EAGLView, the CADisplayLink loop, touch input,
-// and a hidden text field for the soft keyboard.
+// and a hidden keyboard responder for the soft keyboard.
 // ===========================================================================
-@interface MCPEViewController : UIViewController <UITextFieldDelegate> {
+@interface MCPEViewController : UIViewController {
+	UIView* _rootView;
 	EAGLView* _glView;
 	CADisplayLink* _displayLink;
 	BOOL _hasInit;
 	BOOL _paused;
-	UITextField* _keyboardField;
+	MCPEKeyboardResponder* _keyboardField;
 	UITouch* _mouseTouch;
 }
 - (void)showKeyboardWithText:(NSString*)text;
@@ -45,18 +146,21 @@ static MCPEViewController* g_viewController = nil;
 
 - (void)loadView {
 	CGRect bounds = [UIScreen mainScreen].bounds;
+	_rootView = [[UIView alloc] initWithFrame:bounds];
+	_rootView.autoresizingMask = UIViewAutoresizingFlexibleWidth |
+	                             UIViewAutoresizingFlexibleHeight;
+	_rootView.backgroundColor = [UIColor blackColor];
+	_rootView.multipleTouchEnabled = YES;
+	self.view = _rootView;
+
 	_glView = [[EAGLView alloc] initWithFrame:bounds];
 	_glView.autoresizingMask = UIViewAutoresizingFlexibleWidth |
 	                           UIViewAutoresizingFlexibleHeight;
 	_glView.multipleTouchEnabled = YES;
-	self.view = _glView;
+	[_rootView addSubview:_glView];
 
-	_keyboardField = [[UITextField alloc] initWithFrame:CGRectZero];
-	_keyboardField.delegate = self;
-	_keyboardField.autocorrectionType = UITextAutocorrectionTypeNo;
-	_keyboardField.autocapitalizationType = UITextAutocapitalizationTypeNone;
-	_keyboardField.hidden = YES;
-	[_glView addSubview:_keyboardField];
+	_keyboardField = [[MCPEKeyboardResponder alloc] initWithFrame:CGRectMake(-100.0, -100.0, 1.0, 1.0)];
+	[_rootView addSubview:_keyboardField];
 }
 
 - (CGFloat)scale {
@@ -69,7 +173,6 @@ static MCPEViewController* g_viewController = nil;
 	[super viewDidLoad];
 	[_glView createFramebuffer];
 
-	// Tell the platform / game the real pixel resolution.
 	g_platform->setScreenSize(_glView.backingWidth, _glView.backingHeight,
 	                          [self scale]);
 
@@ -116,7 +219,6 @@ static MCPEViewController* g_viewController = nil;
 	_paused = NO;
 }
 
-// --- touch -> Multitouch/Mouse --------------------------------------------
 - (void)feedTouches:(NSSet*)touches pressed:(BOOL)pressed moved:(BOOL)moved {
 	CGFloat scale = [self scale];
 	UITouch* primaryTouch = _mouseTouch;
@@ -170,32 +272,12 @@ static MCPEViewController* g_viewController = nil;
 	[self feedTouches:touches pressed:NO moved:NO];
 }
 
-// --- soft keyboard ---------------------------------------------------------
 - (void)showKeyboardWithText:(NSString*)text {
-	_keyboardField.text = text ?: @"";
+	[_keyboardField setInitialText:text];
 	[_keyboardField becomeFirstResponder];
 }
 - (void)hideKeyboard {
 	[_keyboardField resignFirstResponder];
-}
-
-- (BOOL)textField:(UITextField*)tf
-shouldChangeCharactersInRange:(NSRange)range
-replacementString:(NSString*)string {
-	if (string.length == 0) {
-		// backspace
-		Keyboard::feed(8, 1);
-		Keyboard::feed(8, 0);
-	} else {
-		Keyboard::feedText(std::string([string UTF8String]), 0);
-	}
-	return YES;
-}
-
-- (BOOL)textFieldShouldReturn:(UITextField*)tf {
-	Keyboard::feed(13, 1);
-	Keyboard::feed(13, 0);
-	return YES;
 }
 
 - (BOOL)prefersStatusBarHidden { return YES; }
@@ -216,6 +298,7 @@ replacementString:(NSString*)string {
 didFinishLaunchingWithOptions:(NSDictionary*)options {
 	[application setStatusBarHidden:YES];
 	[application setIdleTimerDisabled:YES];
+	MCPEConfigureAudioSession();
 
 	_window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 
@@ -261,9 +344,6 @@ didFinishLaunchingWithOptions:(NSDictionary*)options {
 
 @end
 
-// ===========================================================================
-// Keyboard bridge used by AppPlatform_iOS.
-// ===========================================================================
 void MCPE_iOS_ShowKeyboard(const std::string& current) {
 	NSString* s = [NSString stringWithUTF8String:current.c_str()];
 	[g_viewController performSelectorOnMainThread:@selector(showKeyboardWithText:)
@@ -276,9 +356,6 @@ void MCPE_iOS_HideKeyboard(void) {
 	                                waitUntilDone:NO];
 }
 
-// ===========================================================================
-// Entry point.
-// ===========================================================================
 int main(int argc, char* argv[]) {
 	@autoreleasepool {
 		struct timeval start;
@@ -295,7 +372,6 @@ int main(int argc, char* argv[]) {
 		ctx.platform = &platform;
 		app->context = ctx;
 
-		// Game data path: app sandbox Documents directory.
 		@autoreleasepool {
 			NSArray* dirs = NSSearchPathForDirectoriesInDomains(
 				NSDocumentDirectory, NSUserDomainMask, YES);
