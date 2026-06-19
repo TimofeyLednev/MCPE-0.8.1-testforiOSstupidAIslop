@@ -2,14 +2,15 @@
 
 NBCraft-style cross compilation: iOS 8.0 SDK + [Un1q32/cctools-port](https://github.com/Un1q32/cctools-port) `ld64` + `ldid`.
 
-**Status: the build compiles all game code with `libc++`, links a signed `armv7`
-Mach-O, and packs an `.ipa`.** (No audio unless you supply real sounds, and you
-must add `assets/` for the app to actually run — see below.)
+**Status: the build compiles all game code with `libc++`, links a signed fat
+`armv7` (iOS 5.0) + `arm64` (iOS 7.0) Mach-O, and packs an `.ipa`.** (No audio
+unless you supply real sounds, and you must add `assets/` for the app to
+actually run — see below.)
 
 ## Layout
 
 - `build.sh` — downloads the iOS 8.0 SDK, builds the cross toolchain (ld64, lipo, strip, ldid), then runs the cmake build per target, lipos the slices together, strips, signs with `ldid`, and packs an `.ipa`.
-- `ios-cc` / `ios-c++` — compiler wrappers. They require `NBC_TARGET` (e.g. `armv7-apple-ios6.0`) and inject `-isysroot`, `-target`, `-stdlib=libc++`, `-fuse-ld=ld64`.
+- `ios-cc` / `ios-c++` — compiler wrappers. They require `NBC_TARGET` (e.g. `armv7-apple-ios5.0`) and inject `-isysroot`, `-target`, `-stdlib=libc++`, `-fuse-ld=ld64`.
 - `build-ipa.sh` — packages the signed binary + everything in `resources/` (Info.plist, launch images, icons, `assets/`) into `Payload/<app>.app` and zips an `.ipa`.
 - `mcpe.entitlements` — minimal `get-task-allow` entitlements for sideloading.
 - `resources/` — everything bundled into the `.app`: `Info.plist`, launch images (incl. `Default-568h@2x.png` for iPhone 5), icons, and `assets/` (unpack the game's resources here). See `resources/README.md`.
@@ -77,10 +78,11 @@ minutes). Subsequent runs are cached and fast. The result:
 - signed binary: `platforms/ios/minecraftpe08decomp`
 - packaged app:  `platforms/ios/build/MCPE08DECOMP.ipa`
 
-Override the target set with `NBC_TARGETS` (space-separated), e.g.:
+Override the target set with `NBC_TARGETS` (space-separated). The default
+already builds a fat armv7 + arm64 binary; to build a single slice, e.g.:
 
 ```sh
-NBC_TARGETS="armv7-apple-ios6.0 arm64-apple-ios7.0" ./build.sh
+NBC_TARGETS="armv7-apple-ios5.0" ./build.sh
 ```
 
 Skip the `.ipa` step with `NBC_NO_IPA=1`. Debug build with `DEBUG=1`.
@@ -97,10 +99,12 @@ expected layout, launch-image sizes, and icon sizes.
 
 ## Targets / deployment floor
 
-- Default: `armv7-apple-ios6.0` (override with `NBC_TARGETS`, space-separated).
-- arm64 floor for this SDK is iOS 7.0 (`arm64-apple-ios7.0`).
-- Goal is to lower armv7 to iOS 5.0, then evaluate 4.3 once the C++ standard
-  usage is checked (the core is C++11).
+- Default: fat binary `armv7-apple-ios5.0 arm64-apple-ios7.0` (override with
+  `NBC_TARGETS`, space-separated). lipo fuses the slices into one binary.
+- armv7 floor is iOS 5.0; arm64 floor for this SDK is iOS 7.0
+  (`arm64-apple-ios7.0`), the minimum 64-bit target the iOS 8.0 SDK supports.
+- Next: evaluate lowering armv7 to 4.3 once the C++ standard usage is checked
+  (the core is C++11).
 
 ## How the core build switches to iOS
 

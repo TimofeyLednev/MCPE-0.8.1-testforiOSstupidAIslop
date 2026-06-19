@@ -71,6 +71,7 @@ locally (weak) in our objects and the link succeeds. Don't remove the
 `-I .../libcxx` flag or that shim.
 
 ## Deployment target
-Default `NBC_TARGETS=armv7-apple-ios6.0`. arm64 floor is iOS 7.0
-(`arm64-apple-ios7.0`). Lower to ios5.0 (and later test ios4.3) only after
-on-device testing with real assets.
+Default `NBC_TARGETS="armv7-apple-ios5.0 arm64-apple-ios7.0"` (fat binary;
+lipo fuses the slices). armv7 floor is iOS 5.0; arm64 floor is iOS 7.0, the
+minimum the iOS 8.0 SDK supports for 64-bit. Evaluate lowering armv7 to 4.3
+only after on-device testing with real assets.

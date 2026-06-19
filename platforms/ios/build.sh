@@ -7,8 +7,11 @@ scriptroot="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 platformdir="$scriptroot"
 
 # Default build target(s). Override with NBC_TARGETS to build a custom set.
-# armv7 floor is iOS 6.0 (per project goal); arm64 floor is iOS 7.0.
-NBC_TARGETS="${NBC_TARGETS:-armv7-apple-ios6.0}"
+# Fat binary: armv7 floor lowered to iOS 5.0; arm64 floor is iOS 7.0 (the
+# minimum the iOS 8.0 SDK supports for 64-bit). lipo fuses the slices below,
+# so the .ipa runs on old 32-bit armv7 devices and modern arm64 ones (e.g.
+# iPhone 6s Plus / iOS 15.5) from a single binary (~a couple MB larger).
+NBC_TARGETS="${NBC_TARGETS:-armv7-apple-ios5.0 arm64-apple-ios7.0}"
 
 bin='minecraftpe08decomp'
 entitlements="$platformdir/mcpe.entitlements"
