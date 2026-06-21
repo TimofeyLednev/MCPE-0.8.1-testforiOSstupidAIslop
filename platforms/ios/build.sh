@@ -23,7 +23,7 @@ mkdir -p "$workdir/sdks"
 cd "$workdir"
 
 # ---- iOS SDK ----------------------------------------------------------------
-sdkver=1
+sdkver=2
 if ! [ -d "$sdk" ] || [ "$(cat sdks/sdkver 2>/dev/null)" != "$sdkver" ]; then
     printf '\nDownloading iOS 8.0 SDK...\n\n'
     rm -rf "$sdk" iPhoneOS8.0.sdk.tar.lzma iPhoneOS8.0.sdk
@@ -32,6 +32,19 @@ if ! [ -d "$sdk" ] || [ "$(cat sdks/sdkver 2>/dev/null)" != "$sdkver" ]; then
     mv iPhoneOS8.0.sdk "$sdk"
     rm -f iPhoneOS8.0.sdk.tar.lzma
     printf '%s' "$sdkver" > sdks/sdkver
+fi
+
+# Make sure clang can determine the SDK version. This SDK ships an old
+# binary-format SDKSettings.plist (bplist00) that modern clang does NOT parse,
+# so it silently stamps the Mach-O sdk version = deployment-target min (e.g.
+# 7.0). UIKit then takes the legacy _UIOldConstraintBasedLayoutSupport path and
+# aborts on keyboard rotation ("Autolayout doesn't support crossing rotational
+# bounds transforms"). clang DOES read SDKSettings.json, so drop one in with the
+# real SDK version to force a correct sdk stamp (>= 8.0 -> modern layout path).
+if [ ! -f "$sdk/SDKSettings.json" ]; then
+    cat > "$sdk/SDKSettings.json" <<'JSON'
+{"Version":"8.0","CanonicalName":"iphoneos8.0","MaximumDeploymentTarget":"8.0","DisplayName":"iOS 8.0"}
+JSON
 fi
 
 # ---- host tooling -----------------------------------------------------------
