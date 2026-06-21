@@ -109,16 +109,6 @@ if [ -n "$built" ]; then
     xcrun lipo -create $built -output "$platformdir/$bin"
     [ -z "$DEBUG" ] && [ -z "$NOSTRIP" ] && xcrun strip -x "$platformdir/$bin" || true
 
-    # Sign with the real codesign. Default to ad-hoc ("-") so the binary is
-    # valid for jailbroken / sideload-with-resign workflows; override with
-    # CODESIGN_IDENTITY="iPhone Developer: ..." for a real signing identity.
-    identity="${CODESIGN_IDENTITY:--}"
-    xcrun codesign --force --sign "$identity" \
-        --entitlements "$entitlements" \
-        --timestamp=none \
-        "$platformdir/$bin" 2>/dev/null \
-        || xcrun codesign --force --sign "$identity" "$platformdir/$bin"
-
     printf '\nBuilt binary: %s\n' "$platformdir/$bin"
     [ -n "$NBC_NO_IPA" ] || "$platformdir/build-ipa.sh" "$platformdir/$bin"
 else
