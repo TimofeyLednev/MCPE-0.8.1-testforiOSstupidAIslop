@@ -4,7 +4,7 @@ An attempt to decompile MCPE 0.8.1 and to make it possible to run it on differen
 ## Building
 
 ## Cloning the repo and extracting sounds
-* Clone the repo with `--recursive` flag(or use `git submodule init` and `git submodule update` after cloning if you forgot to add it)
+* Clone the repo with `--recursive` flag(or use `git submodule init` and `git submodule update` after cloning if you forgot to add it). Note: `RakNet` and `OpenAES` are vendored directly in the repo now (forked with build fixes), so only `glm`, `stb`, `jsoncpp` and `utf8proc` remain as submodules.
 * Run `python tools/get_sound_data.py <path/to/libminecraftpe.so>` - it should generate `pcm_data.c`
 * Move `pcm_data.c` to `./minecraftpe/impl/`
 

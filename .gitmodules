@@ -10,9 +10,3 @@
 [submodule "utf8proc"]
 	path = utf8proc
 	url = https://github.com/JuliaStrings/utf8proc
-[submodule "RakNet"]
-	path = RakNet
-	url = https://github.com/TimofeyLednev/RakNet
-[submodule "OpenAES"]
-	path = OpenAES
-	url = https://github.com/TimofeyLednev/OpenAES

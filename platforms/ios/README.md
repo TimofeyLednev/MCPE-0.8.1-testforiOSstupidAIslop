@@ -78,7 +78,7 @@ Why these matter:
 - `libssl-dev libplist-dev libplist-utils pkg-config` — needed to build `ldid`
   and for the `.ipa` packaging step (`plistutil`).
 
-### 2. Clone with submodules
+### 2. Clone
 
 ```sh
 git clone --recursive https://github.com/TimofeyLednev/MCPE-0.8.1-testforiOSstupidAIslop.git
@@ -86,6 +86,11 @@ cd MCPE-0.8.1-testforiOSstupidAIslop
 # if you forgot --recursive:
 git submodule update --init --recursive
 ```
+
+Note: `RakNet` and `OpenAES` are now vendored directly in this repo (forked
+with macOS/iOS build fixes baked in), so they are **not** submodules anymore —
+the tree builds even without `--recursive`. The remaining submodules
+(`glm`, `stb`, `jsoncpp`, `utf8proc`) are still fetched via `--recursive`.
 
 ### 3. Sounds (pick one)
 

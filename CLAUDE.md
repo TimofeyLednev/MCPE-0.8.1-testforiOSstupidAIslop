@@ -27,6 +27,19 @@ Milestones done:
    the original APK sounds.
 
 ## Important build gotchas (already solved — don't regress)
+- **`MCOServerListItem` incomplete type under libc++ (native macOS build)**:
+  `MojangConnector.cpp` holds a `shared_ptr<unordered_map<long long,
+  MCOServerListItem>>` but the header only forward-declares `MCOServerListItem`.
+  libstdc++ (Linux) is lazy and never instantiates `std::pair<const long long,
+  MCOServerListItem>`, so the desktop build was fine. The real Xcode/libc++
+  toolchain instantiates the map's `value_type` on the `serverList = a2`
+  assignment and dies with `field has incomplete type 'MCOServerListItem'`.
+  Fixed by `#include <network/mco/MCOServerListItem.hpp>` at the top of
+  `MojangConnector.cpp`. Don't drop it.
+- **RakNet / OpenAES are vendored, not submodules**: the `TimofeyLednev` forks
+  of `RakNet` and `OpenAES` (with the macOS compile fixes) are committed
+  directly into the tree, so the repo builds even when cloned **without**
+  `--recurse-submodules`. Don't re-add them as submodules.
 - **libc++ iostream link wall**: the host libc++ headers (libc++-18) are a
   *non-vendor* build, so they define
   `_LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS`. That makes `<sstream>` emit

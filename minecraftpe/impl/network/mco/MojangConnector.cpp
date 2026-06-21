@@ -1,4 +1,5 @@
 #include <network/mco/MojangConnector.hpp>
+#include <network/mco/MCOServerListItem.hpp>
 #include <util/ThreadCollection.hpp>
 #include <network/mco/LoginInformation.hpp>
 #include <Minecraft.hpp>
