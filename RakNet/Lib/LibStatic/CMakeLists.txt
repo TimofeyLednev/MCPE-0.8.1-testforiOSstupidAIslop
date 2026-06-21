@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 project(RakNetStatic)
-add_compile_options(-Wno-reserved-user-defined-literal -Wno-c++11-narrowing -Wno-register -Wno-narrowing)
+add_compile_options(-Wno-unknown-warning-option -Wno-reserved-user-defined-literal -Wno-c++11-narrowing -Wno-register -Wno-deprecated-register -Wno-narrowing -Wno-dangling-else -Wno-logical-op-parentheses)
 
 FILE(GLOB ALL_HEADER_SRCS ${RakNet_SOURCE_DIR}/Source/*.h)
 FILE(GLOB ALL_CPP_SRCS ${RakNet_SOURCE_DIR}/Source/*.cpp)
