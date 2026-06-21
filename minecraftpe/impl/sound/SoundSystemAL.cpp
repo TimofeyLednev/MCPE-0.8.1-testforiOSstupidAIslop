@@ -87,7 +87,7 @@ void SoundSystemAL::setListenerPos(float a, float b, float c) {
 }
 void SoundSystemAL::setListenerAngle(float a) {
 	float r = a * (M_PI / 180.0);
-	float orient[] = {-sin(r), 0, cos(r), 0, 1, 0};
+	float orient[] = {-sinf(r), 0, cosf(r), 0, 1, 0};
 	alListenerfv(AL_ORIENTATION, orient);
 }
 void SoundSystemAL::load(const std::string&) {
