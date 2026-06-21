@@ -25,10 +25,10 @@ export NBC_TOOLCHAIN=native
 
 # Default build target(s). With the modern SDK we can go straight to arm64.
 # Override with NBC_TARGETS (space-separated) to build a custom/fat set, e.g.
-#   NBC_TARGETS="armv7-apple-ios9.0 arm64-apple-ios9.0" ./build-native.sh
+#   NBC_TARGETS="armv7-apple-ios5.0 arm64-apple-ios7.0" ./build-native.sh
 # Note: recent Xcode SDKs no longer ship the 32-bit armv7 slice, so the default
 # here is arm64 only. The deployment floor is whatever your SDK supports.
-NBC_TARGETS="${NBC_TARGETS:-arm64-apple-ios9.0}"
+NBC_TARGETS="${NBC_TARGETS:-arm64-apple-ios7.0}"
 
 bin='minecraftpe08decomp'
 entitlements="$platformdir/mcpe.entitlements"
