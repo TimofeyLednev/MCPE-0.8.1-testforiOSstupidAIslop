@@ -45,75 +45,6 @@ static void MCPEConfigureAudioSession(void) {
 	}
 }
 
-@interface MCPEKeyboardResponder : UIView <UIKeyInput, UITextInputTraits> {
-	NSMutableString* _buffer;
-}
-- (void)setInitialText:(NSString*)text;
-@end
-
-@implementation MCPEKeyboardResponder
-
-- (id)initWithFrame:(CGRect)frame {
-	self = [super initWithFrame:frame];
-	if (self) {
-		_buffer = [[NSMutableString alloc] init];
-		self.backgroundColor = [UIColor clearColor];
-		self.opaque = NO;
-		self.alpha = 0.01f;
-		self.userInteractionEnabled = NO;
-	}
-	return self;
-}
-
-- (void)dealloc {
-	[_buffer release];
-	[super dealloc];
-}
-
-- (BOOL)canBecomeFirstResponder { return YES; }
-- (BOOL)hasText { return [_buffer length] > 0; }
-
-- (void)setInitialText:(NSString*)text {
-	[_buffer setString:text ? text : @""];
-}
-
-- (void)insertText:(NSString*)text {
-	if (!text || [text length] == 0) {
-		return;
-	}
-	if ([text isEqualToString:@"\n"]) {
-		Keyboard::feed(13, 1);
-		Keyboard::feed(13, 0);
-		return;
-	}
-	[_buffer appendString:text];
-	Keyboard::feedText(std::string([text UTF8String]), 0);
-}
-
-- (void)deleteBackward {
-	if ([_buffer length] > 0) {
-		[_buffer deleteCharactersInRange:NSMakeRange([_buffer length] - 1, 1)];
-	}
-	Keyboard::feed(8, 1);
-	Keyboard::feed(8, 0);
-}
-
-// UITextInputTraits. secureTextEntry disables the iOS 13+ continuous-path
-// (QuickPath / slide-to-type) overlay and the predictive bar. That overlay's
-// internal Auto Layout setup is what aborts on this off-screen responder, so
-// turning it off is the actual crash fix. All of these traits exist since
-// iOS 2-5, so the iOS 5.0 armv7 slice stays compatible.
-- (UITextAutocapitalizationType)autocapitalizationType { return UITextAutocapitalizationTypeNone; }
-- (UITextAutocorrectionType)autocorrectionType { return UITextAutocorrectionTypeNo; }
-- (UITextSpellCheckingType)spellCheckingType { return UITextSpellCheckingTypeNo; }
-- (UIKeyboardType)keyboardType { return UIKeyboardTypeDefault; }
-- (UIKeyboardAppearance)keyboardAppearance { return UIKeyboardAppearanceDefault; }
-- (UIReturnKeyType)returnKeyType { return UIReturnKeyDefault; }
-- (BOOL)enablesReturnKeyAutomatically { return NO; }
-- (BOOL)isSecureTextEntry { return YES; }
-
-@end
-
 // ---------------------------------------------------------------------------
 // Globals shared with AppPlatform_iOS.mm (keyboard bridge).
 // ---------------------------------------------------------------------------
@@ -125,15 +56,15 @@ static MCPEViewController* g_viewController = nil;
 
 // ===========================================================================
 // View controller: owns the EAGLView, the CADisplayLink loop, touch input,
-// and a hidden keyboard responder for the soft keyboard.
+// and a hidden keyboard field for the soft keyboard.
 // ===========================================================================
-@interface MCPEViewController : UIViewController {
+@interface MCPEViewController : UIViewController <UITextFieldDelegate> {
 	UIView* _rootView;
 	EAGLView* _glView;
 	CADisplayLink* _displayLink;
 	BOOL _hasInit;
 	BOOL _paused;
-	MCPEKeyboardResponder* _keyboardField;
+	UITextField* _keyboardField;
 	UITouch* _mouseTouch;
 }
 - (void)showKeyboardWithText:(NSString*)text;
@@ -143,6 +74,20 @@ static MCPEViewController* g_viewController = nil;
 @end
 
 @implementation MCPEViewController
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+	return UIInterfaceOrientationMaskLandscape;
+}
+
+- (BOOL)shouldAutorotate {
+	return YES;
+}
+
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
+	return UIInterfaceOrientationLandscapeLeft;
+}
+
+- (BOOL)prefersStatusBarHidden { return YES; }
 
 - (void)loadView {
 	CGRect bounds = [UIScreen mainScreen].bounds;
@@ -159,7 +104,25 @@ static MCPEViewController* g_viewController = nil;
 	_glView.multipleTouchEnabled = YES;
 	[_rootView addSubview:_glView];
 
-	_keyboardField = [[MCPEKeyboardResponder alloc] initWithFrame:CGRectMake(-100.0, -100.0, 1.0, 1.0)];
+	_keyboardField = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 280.0f, 40.0f)];
+	_keyboardField.center = CGPointMake(bounds.size.width * 0.5f, bounds.size.height * 0.5f);
+	_keyboardField.autoresizingMask = UIViewAutoresizingFlexibleTopMargin |
+	                                  UIViewAutoresizingFlexibleBottomMargin |
+	                                  UIViewAutoresizingFlexibleLeftMargin |
+	                                  UIViewAutoresizingFlexibleRightMargin;
+	_keyboardField.delegate = self;
+	_keyboardField.backgroundColor = [UIColor clearColor];
+	_keyboardField.opaque = NO;
+	_keyboardField.alpha = 0.01f;
+	_keyboardField.borderStyle = UITextBorderStyleNone;
+	_keyboardField.clearsOnBeginEditing = NO;
+	_keyboardField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+	_keyboardField.autocorrectionType = UITextAutocorrectionTypeNo;
+	_keyboardField.spellCheckingType = UITextSpellCheckingTypeNo;
+	_keyboardField.keyboardType = UIKeyboardTypeDefault;
+	_keyboardField.keyboardAppearance = UIKeyboardAppearanceDefault;
+	_keyboardField.returnKeyType = UIReturnKeyDefault;
+	_keyboardField.enablesReturnKeyAutomatically = NO;
 	[_rootView addSubview:_keyboardField];
 }
 
@@ -273,14 +236,44 @@ static MCPEViewController* g_viewController = nil;
 }
 
 - (void)showKeyboardWithText:(NSString*)text {
-	[_keyboardField setInitialText:text];
+	_keyboardField.text = text ? text : @"";
 	[_keyboardField becomeFirstResponder];
 }
 - (void)hideKeyboard {
 	[_keyboardField resignFirstResponder];
 }
 
-- (BOOL)prefersStatusBarHidden { return YES; }
+- (BOOL)textField:(UITextField*)textField
+shouldChangeCharactersInRange:(NSRange)range
+replacementString:(NSString*)text {
+	if (!text) {
+		return NO;
+	}
+
+	if ([text isEqualToString:@"\n"] || [text isEqualToString:@"\r"]) {
+		Keyboard::feed(13, 1);
+		Keyboard::feed(13, 0);
+		return NO;
+	}
+
+	if ([text length] == 0) {
+		NSUInteger count = range.length > 0 ? range.length : 1;
+		for (NSUInteger i = 0; i < count; ++i) {
+			Keyboard::feed(8, 1);
+			Keyboard::feed(8, 0);
+		}
+		return NO;
+	}
+
+	Keyboard::feedText(std::string([text UTF8String]), 0);
+	return NO;
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField*)textField {
+	Keyboard::feed(13, 1);
+	Keyboard::feed(13, 0);
+	return NO;
+}
 
 @end
 
@@ -310,6 +303,11 @@ didFinishLaunchingWithOptions:(NSDictionary*)options {
 	}
 	[_window makeKeyAndVisible];
 	return YES;
+}
+
+- (UIInterfaceOrientationMask)application:(UIApplication*)application
+	supportedInterfaceOrientationsForWindow:(UIWindow*)window {
+	return UIInterfaceOrientationMaskLandscape;
 }
 
 - (void)applicationWillResignActive:(UIApplication*)application {
