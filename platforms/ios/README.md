@@ -34,9 +34,9 @@ cd platforms/ios
 - Needs macOS with Xcode (or the Command Line Tools) and `cmake`.
   Verify the SDK is found: `xcrun --sdk iphoneos --show-sdk-path` must print a
   path.
-- Default target is `arm64-apple-ios9.0` (modern Xcode SDKs no longer ship the
+- Default target is `arm64-apple-ios7.0` (modern Xcode SDKs no longer ship the
   32-bit `armv7` slice). Override with `NBC_TARGETS`, e.g.
-  `NBC_TARGETS="arm64-apple-ios9.0" ./build-native.sh`.
+  `NBC_TARGETS="arm64-apple-ios7.0" ./build-native.sh`.
 - Signing: ad-hoc (`-`) by default. For a real identity:
   `CODESIGN_IDENTITY="iPhone Developer: Your Name (TEAMID)" ./build-native.sh`.
 - Same knobs as `build.sh`: `DEBUG=1`, `NOSTRIP=1`, `NBC_NO_IPA=1`,
