@@ -18,6 +18,20 @@ esac
 # (NBCraft used libstdc++ for armv7-ios; we deliberately override that here.)
 stdlib=libc++
 
+if [ "${NBC_TOOLCHAIN:-cctools}" = native ]; then
+    case $0 in
+        *++) native_cc="clang++" ;;
+        *)   native_cc="clang"   ;;
+    esac
+    sdk="${NBC_SDK:-$(xcrun --sdk iphoneos --show-sdk-path)}"
+    exec xcrun --sdk iphoneos "$native_cc" \
+        -stdlib="$stdlib" \
+        "$@" \
+        -isysroot "$sdk" \
+        -target "$NBC_TARGET" \
+        -Wno-unused-command-line-argument
+fi
+
 exec "$cc" \
     -mlinker-version=762 \
     -stdlib="$stdlib" \

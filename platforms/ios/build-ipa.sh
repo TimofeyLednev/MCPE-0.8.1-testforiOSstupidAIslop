@@ -25,8 +25,7 @@ if ! [ -f "$bin" ]; then
 fi
 
 if ! command -v plistutil >/dev/null; then
-    printf 'plistutil not found!\n'
-    exit 1
+    printf 'note: plistutil not found (only needed on Linux); continuing.\n'
 fi
 
 rm -rf "$ipadir"

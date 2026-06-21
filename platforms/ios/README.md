@@ -7,6 +7,43 @@ NBCraft-style cross compilation: iOS 8.0 SDK + [Un1q32/cctools-port](https://git
 unless you supply real sounds, and you must add `assets/` for the app to
 actually run — see below.)
 
+## Two console build paths
+
+There are now **two** command-line ways to build, both run from this directory
+and both produce the same `.ipa`. Pick based on the machine you're on:
+
+| Script             | Toolchain                                   | Host  | When to use |
+|--------------------|---------------------------------------------|-------|-------------|
+| `./build.sh`       | iOS 8.0 SDK + cctools-port `ld64` + `ldid`  | Linux | Cross-compile from a Linux box (no Mac needed). |
+| `./build-native.sh`| **Real Xcode toolchain** (`xcrun clang`, `lipo`, `strip`, `codesign`) + the iOS SDK from your installed Xcode | macOS | You have a Mac with Xcode and want the genuine Apple toolchain — still a pure console build, **not** opening an `.xcodeproj`. |
+
+Both share the exact same CMake configuration and the `ios-cc` / `ios-c++`
+compiler wrappers. The wrappers switch behaviour on the `NBC_TOOLCHAIN`
+environment variable: unset/`cctools` → the cross path; `native` → `xcrun
+clang` against the system SDK. `build-native.sh` just sets `NBC_TOOLCHAIN=native`
+and uses the Xcode `lipo`/`strip`/`codesign` for the link, fuse, strip and sign
+steps. The cctools path (`build.sh`) is completely unchanged.
+
+### Native (macOS / Xcode toolchain) quick start
+
+```sh
+cd platforms/ios
+./build-native.sh
+```
+
+- Needs macOS with Xcode (or the Command Line Tools) and `cmake`.
+  Verify the SDK is found: `xcrun --sdk iphoneos --show-sdk-path` must print a
+  path.
+- Default target is `arm64-apple-ios9.0` (modern Xcode SDKs no longer ship the
+  32-bit `armv7` slice). Override with `NBC_TARGETS`, e.g.
+  `NBC_TARGETS="arm64-apple-ios9.0" ./build-native.sh`.
+- Signing: ad-hoc (`-`) by default. For a real identity:
+  `CODESIGN_IDENTITY="iPhone Developer: Your Name (TEAMID)" ./build-native.sh`.
+- Same knobs as `build.sh`: `DEBUG=1`, `NOSTRIP=1`, `NBC_NO_IPA=1`,
+  `ASSET_DIR=...`.
+- Outputs: signed binary at `platforms/ios/minecraftpe08decomp`, packaged app at
+  `platforms/ios/build/MCPE08DECOMP.ipa`.
+
 ## Layout
 
 - `build.sh` — downloads the iOS 8.0 SDK, builds the cross toolchain (ld64, lipo, strip, ldid), then runs the cmake build per target, lipos the slices together, strips, signs with `ldid`, and packs an `.ipa`.

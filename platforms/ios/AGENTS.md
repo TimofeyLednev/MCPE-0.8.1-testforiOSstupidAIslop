@@ -6,8 +6,15 @@ NBCraft-style Linux cross-compile path for an iOS build of MCPE 0.8.1.
 - `build.sh` is run from this directory. It downloads the iOS 8.0 SDK, builds
   `cctools-port` (`ld64`, `lipo`, `strip`) and `ldid`, then runs CMake on the
   repo root (`platforms/ios/../..`) once per target in `NBC_TARGETS`.
+- `build-native.sh` is the second console path (macOS only). Same CMake config,
+  but it sets `NBC_TOOLCHAIN=native` so `ios-cc`/`ios-c++` shell out to `xcrun
+  clang/clang++` against the installed Xcode's iOS SDK, and it uses Xcode's
+  `lipo`/`strip`/`codesign` for the fuse/strip/sign steps. It is still a pure
+  command-line build (NOT opening an `.xcodeproj`). The cctools path is
+  unchanged.
 - `ios-cc` / `ios-c++` are the compiler wrappers CMake calls. They require
-  `NBC_TARGET` and `NBC_SDK` in the environment (build.sh sets both).
+  `NBC_TARGET` in the environment (both build scripts set it). `NBC_TOOLCHAIN`
+  selects cctools (default) vs. the native Xcode toolchain.
 - The build passes `-DMCPE_IOS=ON`, which is the single switch the CMake and the
   C/C++ source guards key off of.
 
