@@ -80,6 +80,28 @@ else
     printf 'WARNING: no asset dir at %s (set ASSET_DIR). App will lack assets.\n' "$assetdir"
 fi
 
+sign_app_bundle() {
+    if command -v codesign >/dev/null 2>&1; then
+        identity="${CODESIGN_IDENTITY:--}"
+        if [ -f "$platformdir/mcpe.entitlements" ]; then
+            codesign --force --sign "$identity" \
+                --entitlements "$platformdir/mcpe.entitlements" \
+                --timestamp=none \
+                "$apppath" 2>/dev/null \
+                || codesign --force --sign "$identity" "$apppath"
+        else
+            codesign --force --sign "$identity" \
+                --timestamp=none \
+                "$apppath" 2>/dev/null \
+                || codesign --force --sign "$identity" "$apppath"
+        fi
+    elif command -v ldid >/dev/null 2>&1; then
+        ldid -S"$platformdir/mcpe.entitlements" "$apppath/$execname" || true
+    fi
+}
+
+sign_app_bundle
+
 cd "$ipadir"
 rm -f "../$ipaname"
 zip -r "../$ipaname" Payload >/dev/null
