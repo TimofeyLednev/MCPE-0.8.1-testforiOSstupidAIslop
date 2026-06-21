@@ -6,6 +6,15 @@ ENDIF()
 
 project(minecraftpe08decomp)
 set (CMAKE_CXX_STANDARD 11)
+
+# Older Apple clang (Xcode 6.x) does not recognise several of the modern
+# -Wno-* flag names sprinkled across the third-party CMakeLists, and emits a
+# noisy "unknown warning option" diagnostic for each one. Silence that meta
+# diagnostic tree-wide for Clang/AppleClang so the real build output is readable.
+if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wno-unknown-warning-option)
+endif()
+
 include_directories(stb)
 include_directories(glm)
 include_directories(OpenAES/inc/)
